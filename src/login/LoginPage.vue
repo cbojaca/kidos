@@ -23,21 +23,31 @@
 
 <script>
 import { mapState, mapActions } from 'vuex'
+import { router } from '../_helpers/router';
+import { authenticationService } from '../_services/authentication.service'
 
 export default {
     data () {
         return {
             username: '',
             password: '',
-            submitted: false
+            submitted: false,
+            loading: false,
+            returnUrl: '',
+            error: ''
         }
     },
     computed: {
         ...mapState('account', ['status'])
     },
     created () {
-        // reset login status
-        this.logout();
+        // redirect to home if already logged in
+        if (authenticationService.currentUserValue) { 
+            return router.push('/');
+        }
+
+        // get return url from route parameters or default to '/'
+        this.returnUrl = this.$route.query.returnUrl || '/';
     },
     methods: {
         ...mapActions('account', ['login', 'logout']),
@@ -46,6 +56,16 @@ export default {
             const { username, password } = this;
             if (username && password) {
                 this.login({ username, password })
+               /*  authenticationService.login(this.username, this.password)
+                .then(
+                    user => router.push(this.returnUrl),
+                    error => {
+                        commit('loginFailure', error);
+                        dispatch('alert/error', error, { root: true });
+                        this.error = error;
+                        this.loading = false;
+                    }
+                ) */
             }
         }
     }

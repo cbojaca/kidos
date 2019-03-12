@@ -1,5 +1,6 @@
 import { userService } from '../_services';
 import { router } from '../_helpers';
+import { authenticationService } from '../_services/authentication.service';
 
 const user = JSON.parse(localStorage.getItem('user'));
 const state = user
@@ -10,7 +11,7 @@ const actions = {
     login({ dispatch, commit }, { username, password }) {
         commit('loginRequest', { username });
     
-        userService.login(username, password)
+        authenticationService.login(username, password)
             .then(
                 user => {
                     commit('loginSuccess', user);

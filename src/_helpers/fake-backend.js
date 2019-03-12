@@ -1,9 +1,22 @@
+import { Role } from './role'
+
 // array in local storage for registered users
 let users = JSON.parse(localStorage.getItem('users')) || [];
     
 export function configureFakeBackend() {
+    let users = [
+        { id: 1, username: 'admin', password: 'admin', firstName: 'Shain', lastName: 'Papadopulos', role: Role.Admin },
+        { id: 2, username: 'parent', password: 'parent', firstName: 'Nadia', lastName: 'Bojaca', role: Role.Parent },
+        { id: 3, username: 'teacher', password: 'teacher', firstName: 'Maria', lastName: 'Swift', role: Role.Teacher }
+    ];
+
     let realFetch = window.fetch;
     window.fetch = function (url, opts) {
+        const authHeader = opts.headers['Authorization'];
+        const isLoggedIn = authHeader && authHeader.startsWith('Bearer fake-jwt-token');
+        const roleString = isLoggedIn && authHeader.split('.')[1];
+        const role = roleString ? Role[roleString] : null;
+
         return new Promise((resolve, reject) => {
             // wrap in timeout to simulate server api call
             setTimeout(() => {
@@ -26,9 +39,10 @@ export function configureFakeBackend() {
                             username: user.username,
                             firstName: user.firstName,
                             lastName: user.lastName,
-                            token: 'fake-jwt-token'
+                            role: user.role,
+                            token: `fake-jwt-token.${user.role}`
                         };
-                        resolve({ ok: true, text: () => Promise.resolve(JSON.stringify(responseJson)) });
+                        return ok(responseJson);
                     } else {
                         // else return error
                         reject('Username or password is incorrect');
@@ -40,11 +54,11 @@ export function configureFakeBackend() {
                 // get users
                 if (url.endsWith('/users') && opts.method === 'GET') {
                     // check for fake auth token in header and return users if valid, this security is implemented server side in a real application
-                    if (opts.headers && opts.headers.Authorization === 'Bearer fake-jwt-token') {
-                        resolve({ ok: true, text: () => Promise.resolve(JSON.stringify(users))});
+                    if (opts.headers && opts.headers.Authorization === 'Bearer fake-jwt-token' && role === Role.Admin) {
+                        return ok(users);
                     } else {
                         // return 401 not authorised if token is null or invalid
-                        reject('Unauthorised');
+                        return unauthorised();
                     }
 
                     return;
@@ -122,6 +136,18 @@ export function configureFakeBackend() {
 
                 // pass through any requests not handled above
                 realFetch(url, opts).then(response => resolve(response));
+
+                function ok(body) {
+                    resolve({ ok: true, text: () => Promise.resolve(JSON.stringify(body)) })
+                }
+
+                function unauthorised() {
+                    resolve({ status: 401, text: () => Promise.resolve(JSON.stringify({ message: 'Unauthorised' })) })
+                }
+
+                function error(message) {
+                    resolve({ status: 400, text: () => Promise.resolve(JSON.stringify({ message })) })
+                }
 
             }, 500);
         });
